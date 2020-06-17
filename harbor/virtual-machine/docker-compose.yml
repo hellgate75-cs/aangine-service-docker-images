@@ -1,0 +1,60 @@
+version: '3.1'
+services:
+  harbor_db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Aangine1234@
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: harbor
+    volumes:
+    - /opt/harbor/data:/var/lib/postgresql/data/pgdata
+    ports:
+    - "5432:5432"
+  clair_db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Aangine1234@
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: clair
+    volumes:
+    - /opt/clair/data:/var/lib/postgresql/data/pgdata
+    ports:
+    - "5433:5432"
+  notary_signer_db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Aangine1234@
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: signer
+    volumes:
+    - /opt/notary/signer/data:/var/lib/postgresql/data/pgdata
+    ports:
+    - "5434:5432"
+  notary_server_db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Aangine1234@
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: server
+    volumes:
+    - /opt/notary/server/data:/var/lib/postgresql/data/pgdata
+    ports:
+    - "5435:5432"
+#  clair:
+#    image: quay.io/coreos/clair-git
+#    restart: always
+#    volumes:
+#    - /root/config:/config
+#    entrypoint: ["/usr/bin/dumb-init", "--", "/clair", "-config=/config/clair-config.yml"]
+#    ports:
+#    - "6060:6060"
+#    - "6061:6061"
+    

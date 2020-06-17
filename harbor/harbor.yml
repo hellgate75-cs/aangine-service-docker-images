@@ -1,0 +1,35 @@
+hostname: HOSTNAME
+https:
+  post: 443
+  certificate: "/data/certs/certificate.crt"
+  private_key: "/data/certs/private.key"
+harbor_admin_password: Aangine1234@
+database:
+  password: Aangine1234@
+  max_idle_conns: 150
+  max_open_conns: 300
+data_volume: /data
+clair: 
+  updaters_interval: 12
+jobservice:
+  max_job_workers: 50
+notification:
+  webhook_job_max_retry: 20
+#chart:
+#  absolute_url:
+log:
+  level: error
+  local:
+    rotate_count: 0
+    rotate_size: 100M
+    location: /var/log/harbor
+#  external_endpoint:
+#    protocol: https
+#    host: my-logger-host
+#    port: 80
+#proxy:
+#  http_proxy: http://my-proxy-server:3128
+#  https_proxy: http://my-proxy-server:3128
+#  no_proxy: 127.0.0.1,localhost,HOSTNAME
+#external_url: http://my-external-proxy-server:3128
+#

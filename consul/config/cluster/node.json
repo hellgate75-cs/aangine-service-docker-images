@@ -1,0 +1,14 @@
+{
+  "domain": "DOMAIN",
+  "datacenter": "dc",
+  "data_dir": "/consul/data",
+  "log_level": "INFO",
+  "server": true,
+  "ports": {
+    "http": 8500,
+    "dns": 53
+  },
+  "recursors": [ "8.8.8.8" ],
+  "ui": true,
+  "bootstrap_expect": 3
+}

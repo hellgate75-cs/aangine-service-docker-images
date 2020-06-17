@@ -1,0 +1,159 @@
+{{range services}} {{$name := .Name}} {{$service := service .Name}}
+{{ if ne $name "consul" }}
+upstream {{$name}} {
+    least_conn;
+    {{range $service}}server {{.Address}}:{{.Port}} max_fails=3 fail_timeout=60 weight=1;
+    {{else}}server 127.0.0.1:65535; # force a 502{{end}}
+} {{end}}
+  {{end}}
+
+
+upstream consul{
+  least_conn;
+  server {{env "CONSUL_URL"}} max_fails=3 fail_timeout=60 weight=1;
+}
+
+upstream gui-service{
+  least_conn;
+  server {{env "GUI_SERVICE"}} max_fails=300 fail_timeout=60 weight=1;
+}
+
+
+{{$is_nginx_ssl_configured := (env "USE_SSL")}}
+{{if eq "true" $is_nginx_ssl_configured}}
+server {
+	listen LISTEN_PORT default_server;
+	listen [::]:LISTEN_PORT default_server;
+	server_name   {{env "NGINX_SSL_DOMAIN_NAME"}};
+	return 301 https://$server_name$request_uri;
+}
+{{end}}
+
+server {
+  {{$is_nginx_ssl_configured := (env "USE_SSL")}}
+  {{if eq "true" $is_nginx_ssl_configured}}
+  listen 443 ssl;
+  server_name   {{env "NGINX_SSL_SERVER_NAME"}}   {{env "NGINX_SSL_DOMAIN_NAME"}} ;
+  ssl_certificate {{env "NGINX_SSL_CERT_PATH"}};
+  ssl_certificate_key {{env "NGINX_SSL_KEY_PATH"}};
+  ssl on;
+  ssl_session_cache  builtin:1000  shared:SSL:10m;
+  ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;
+  ssl_ciphers HIGH:!aNULL:!eNULL:!EXPORT:!CAMELLIA:!DES:!MD5:!PSK:!RC4;
+  ssl_prefer_server_ciphers on;
+
+  {{else}}
+  listen LISTEN_PORT;
+  {{end}}
+
+  charset utf-8;
+
+
+
+  client_max_body_size 10M;
+
+########################
+location /stub_status {
+  stub_status;
+}
+
+{{$auth_service_name := (env "AUTH_SERVICE_NAME")}}
+
+location ~ ^/{{$auth_service_name}}/authorize/(.*)$ {
+  internal;
+  proxy_pass              http://{{$auth_service_name}}/$1$is_args$args;
+  proxy_pass_request_body off;
+  proxy_set_header        Content-Length "";
+  proxy_set_header        X-Real-IP $remote_addr;
+  proxy_set_header        X-Original-URI $request_uri;
+}
+
+
+{{range services}} {{$name := .Name}}
+
+############# B SWAGGER ###########
+
+location ~ ^/api-doc/api-index.html$ {
+  root /var/www/static;
+  index api-index.html;
+}
+
+location ~ ^/api-doc/{{$name}}(.*)$ {
+  proxy_pass http://{{$name}}/$1$is_args$args;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_hide_header X-Frame-Options;
+  proxy_set_header Connection 'upgrade';
+  proxy_set_header Host $host;
+  proxy_cache_bypass $http_upgrade;
+}
+
+############# E SWAGGER ###########
+
+location ~ ^/api/{{$name}}/(.*)$ {
+  add_header Access-Control-Expose-Headers "Authorization, Origin, Access-Control-Allow-Origin, Access-Control-Allow-Methods";
+  add_header Access-Control-Allow-Origin '*' always;
+
+  if ($request_method = OPTIONS ) {
+    add_header Access-Control-Allow-Origin *;
+    add_header Access-Control-Allow-Methods "POST, GET, OPTIONS, PUT, DELETE, HEAD, PATCH";
+    add_header Access-Control-Allow-Headers "Origin, Authorization, Accept, Content-Type";
+    add_header Access-Control-Allow-Credentials true;
+    add_header Content-Length 0;
+    add_header Content-Type text/plain;
+    return 200;
+ }
+ proxy_pass http://{{$name}}/$1$is_args$args;
+ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+ proxy_set_header Host $host;
+ proxy_set_header X-Real-IP $remote_addr;
+ proxy_hide_header Access-Control-Allow-Origin;
+ proxy_pass_request_headers      on;
+
+ {{ if eq .Name "consul"}}
+   auth_basic      "Administrator Login";
+   set $auth_file_name /var/www/static/get/.htpasswd;
+
+  if ($request_method = GET ) {
+      set $auth_file_name /var/www/static/get/.htpasswd;
+  }
+  if ($request_method = PUT) {
+      set $auth_file_name  /var/www/static/set/.htpasswd;
+  }
+
+  auth_basic_user_file $auth_file_name;
+
+{{else if eq .Name $auth_service_name}}
+  proxy_set_header        Authorization $http_authorization;
+  proxy_pass_header       Authorization;
+  proxy_connect_timeout       600;
+  proxy_send_timeout          600;
+  proxy_read_timeout          600;
+  send_timeout                600;
+
+{{else}}
+  auth_request /{{$auth_service_name}}/authorize/actuator/health;
+  auth_request_set $auth_status $upstream_status;
+  proxy_set_header        Authorization $http_authorization;
+  proxy_pass_header       Authorization;
+  proxy_connect_timeout       600;
+  proxy_send_timeout          600;
+  proxy_read_timeout          600;
+  send_timeout                600;
+{{end}}
+}
+{{end}}
+
+
+############# UI ###########
+
+location ~ ^/(.*)$ {
+  proxy_pass http://gui-service/$1$is_args$args;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection 'upgrade';
+  proxy_set_header Host $host;
+  proxy_cache_bypass $http_upgrade;
+}
+
+}
